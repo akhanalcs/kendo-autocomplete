@@ -1,6 +1,229 @@
 ﻿@{
     ViewData["Title"] = "Privacy Policy";
+    bool canEdit = true;
 }
 <h1>@ViewData["Title"]</h1>
 
 <p>Use this page to detail your site's privacy policy.</p>
+
+<div align="center">
+    <h2>Autocomplete Example</h2>
+</div>
+<div class="container-fluid">
+    <div class="row" style="position: relative">
+        <div class="col-md-12">
+            @(Html.Kendo()
+            .PanelBar()
+            .Name("autocompleteExamplePanelBar")
+            .ExpandMode(PanelBarExpandMode.Multiple)
+            .Items(panelBar => {
+            panelBar.Add()
+                .Text("OrdersManager")
+                .Expanded(true)
+                .Content(
+                    @<div>
+                        <div id="ordersAutoCompleteDiv" align="center" class="form-group" style="padding-top: 15px; display: none;">
+                            @(Html.Kendo().AutoComplete()
+                                .Name("ordersAutoComplete")
+                                .DataTextField("OrderId")
+                                .Filter("contains")
+                                .Placeholder("Type Order Id...")
+                                .MinLength(3)
+                                .NoDataTemplateId("noDataTemplate")
+                                //.Suggest(false)
+                                .Height(325) // This height NEEDS to be calculated like this: (itemHeight * pageSize)/4 otherwise pagination gets messed up - AshK
+                                .HtmlAttributes(new { style = "width:50%;", @class = "form-control" })
+                                .DataSource(source => {
+                                    source.Custom()
+                                        .ServerFiltering(true)
+                                        .ServerPaging(true)
+                                        .PageSize(50)
+                                        .Type("aspnetmvc-ajax") //Set this type when we use DataSourceRequest and ToDataSourceResult instances
+                                        .Transport(transport =>
+                                        {
+                                            transport.Read(r => r.Action("GetAllOrdersFromMasterDatabase", "Home").Data("hintDataForOrdersAutoComplete").Type(HttpVerbs.Get));
+                                        })
+                                        .Schema(schema =>
+                                        {
+                                            schema.Data("Data") //define datasource#configuration-schema.data option
+                                                .Total("Total"); //define datasource#configuration-schema.total option
+                                        });
+                                })
+                                .Virtual(v => v.ItemHeight(26))
+                                .Events(e => e.Select("onOrderIdSelect"))
+                            )
+                            <p>Hint: Type at least 4 letters, for eg: "Orde"</p>
+                        </div>
+                        <div style="position: absolute">
+                        @(Html.Kendo()
+                        .Grid<OrderViewModel>()
+                        .Name("manageOrdersGrid")
+                        .Columns(columns =>
+                        {
+                            columns.Bound(c => c.OrderId).Hidden();
+                            columns.Bound(c => c.OrderName).Title("Order Name").Width(60);
+                            columns.Bound(c => c.OrderTotal).Title("Order Total").Width(60);
+                            columns.Bound(c => c.IsExpensive).Title("Is Expensive").ClientTemplate("#= data.OrderTotal > 150 ? 'Yes' : 'No' #").Width(50);
+                            columns.Bound(c => c.CustomerFullName).ClientTemplate("#=CustomerFullName.FirstName#").Title("First Name").Width(70);
+                            columns.Bound(c => c.OrderDesc).Title("Order Desc").Width(40).ClientTemplate("#= showOrderDesc(data) #");
+
+                            columns.Command(cmd =>
+                            {
+                                cmd.Edit().HtmlAttributes(new { @class = "btn btn-primary" });
+                                cmd.Destroy().HtmlAttributes(new { @class = "btn btn-primary" });
+                                cmd.Custom("Save").Visible("showSaveCommand").HtmlAttributes(new { @class = "btn btn-primary" }).Click("saveOrderRow");
+                            }).Hidden(!canEdit).Title("Action").Width(80);
+                        })
+                        .Sortable()
+                        .Pageable(p => p.ButtonCount(5).PageSizes(true))
+                        .Scrollable()
+                        .Resizable(r => r.Columns(true))
+                        .Filterable(f => f
+                                .Extra(false)
+                                .Operators(o =>
+                                    o.ForString(str =>
+                                        str.Clear()
+                                            //.StartsWith("Starts With")
+                                            .Contains("Contains")
+                                            .IsEqualTo("Is Equal To")
+                                            .IsNotEqualTo("Is Not Equal To")))
+                        )
+                        .ToolBar(tbr =>
+                        {
+                            tbr.Custom().Text("Add New Records").HtmlAttributes(new { id = "addNewOrderRecords", @class = "btn btn-primary" });
+                            tbr.Custom().Text("Load table").HtmlAttributes(new { id = "btnRefreshOrderRecords", @class = "btn btn-primary" });
+                        })
+                        .Editable(edt => edt.Mode(GridEditMode.PopUp).TemplateName("OrderTemplate").CreateAt(GridInsertRowPosition.Top))
+                        .DataSource(dataSrc => dataSrc
+                            .Ajax()
+                            .ServerOperation(true)
+                            .PageSize(15)
+                            .Model(mdl => mdl.Id(column => column.OrderId))
+                            .Read(read => read.Action("GetOrderRecords", "Home"))
+                            .Update(update => update.Action("UpdateOrderRecord", "Home"))
+                            .Destroy(update => update.Action("DeleteOrderRecord", "Home"))
+                        )
+                        .Events(e=> {
+                            e.Edit("onOrdersGridEdit");
+                        })
+                        .NoRecords(x => x.Template(
+                            "<div class='k-content k-item' style='margin-top:6px;'>" +
+                                "<p class='text-center'>No data found.</p>" +
+                            "</div>"
+                            ))
+                        .AutoBind(false)
+                            )
+                        </div>
+                        </div>);
+            })
+            )
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $('#btnRefreshOrderRecords').click(function (e) {
+            e.preventDefault();
+            $('#ordersAutoCompleteDiv').hide();
+            $('#manageOrdersGrid').data("kendoGrid").dataSource.read();
+        });
+
+        $('#addNewOrderRecords').click(function (e) {
+            e.preventDefault();
+            $('#ordersAutoCompleteDiv').show();
+            var grid = $("#manageOrdersGrid").data("kendoGrid");
+            var dataSource = grid.dataSource;
+            dataSource.data([]);//clear out data to give a clean working table for records addition
+        });
+    });
+
+    function showOrderDesc(orderData) {
+        var orderDesc = orderData.OrderDesc.OrderOtherDesc;
+        return orderDesc;
+    }
+
+    function onOrdersGridEdit(e) {
+        var data = e.model;
+        //Custom functionality for Grid edit removed for now.
+    }
+
+    function showSaveCommand(dataItem) {
+        // show the Save button for the items with OrderId = 0
+        if (dataItem.OrderId == 0) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    function saveOrderRow(e) {
+        var orderData = this.dataItem($(e.currentTarget).closest("tr"));
+        var saveButton = $(e.currentTarget).closest("tr td a.k-grid-Save");
+        var grid = $("#manageOrdersGrid").data("kendoGrid");
+
+         $.ajax({
+            type: "POST",
+            url: "@Url.Action("AddOrderToAppRepo", "Home")",
+            contentType: "application/json",
+            data: JSON.stringify(orderData),
+             success: function (result) {
+                 var title = "", content = "";
+                 if (result[0].OrderId != undefined && result[0].OrderId > 0) {
+                     title = "Success";
+                     content = "Record has been upserted.";
+                 } else {
+                     title = "Failed";
+                     content = "Record is not saved.";
+                 }
+
+                $("<div></div>").kendoDialog({
+                    closable: false, // hide X
+                    title: title,
+                    content: content,
+                    actions: [{
+                        text: "OK",
+                        action: function (e) {
+                            if (result[0].OrderId != undefined && result[0].OrderId > 0) {
+                                saveButton.remove();
+                            }
+                            return true;
+                        },
+                        primary: true
+                    }]
+                }).data("kendoDialog").open().center();
+             },
+             error: function (request, error) {
+                 alert("Record Saving failed.");
+             }
+         });
+    }
+
+    function hintDataForOrdersAutoComplete() {
+        return {
+            orderIdHint: $('#ordersAutoComplete').val()
+        };
+    }
+
+    function onOrderIdSelect(e) {
+        var dataItem = this.dataItem(e.item);
+        var orderData = {
+            OrderId: 0,
+            OrderName: dataItem.OrderName,
+            OrderTotal: dataItem.OrderTotal,
+            CustomerFullName: { FirstName: dataItem.FirstName, LastName: dataItem.LastName },
+            OrderDesc: { OrderDesc: "Something something", OrderOtherDesc: "Something other than Something" }
+        };
+
+        var grid = $("#manageOrdersGrid").data("kendoGrid");
+        grid.dataSource.add(terminalData);
+    }
+</script>
+
+<script id="noDataTemplate" type="text/x-kendo-template">
+    <strong>
+        <i class="fa fa-info-circle text-orange"></i>
+        Order Id you have searched for is not found in master database.
+    </strong>
+</script>

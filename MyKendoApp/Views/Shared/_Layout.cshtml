@@ -7,6 +7,17 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/MyKendoApp.styles.css" asp-append-version="true" />
+    @* Add the Kendo Bootstrap theme: *@
+    <link href="https://kendo.cdn.telerik.com/2023.1.117/styles/kendo.bootstrap-main.min.css" rel="stylesheet" type="text/css" />
+
+    @* Add the the jQuery script from the Telerik CDN: *@
+    <script src="https://kendo.cdn.telerik.com/2023.1.117/js/jquery.min.js"></script>
+
+    @*The kendo.all.min.js and kendo.aspnetmvc.min.js script must be loaded after the jquery.min.js script.
+      jQuery must be loaded only once. Make sure there are no duplicate references elsewhere in the _Layout.*@
+    @* Add the Kendo UI scripts: *@
+    <script src="https://kendo.cdn.telerik.com/2023.1.117/js/kendo.all.min.js"></script>
+    <script src="https://kendo.cdn.telerik.com/2023.1.117/js/kendo.aspnetmvc.min.js"></script>
 </head>
 <body>
     <header>
@@ -41,7 +52,8 @@
             &copy; 2023 - MyKendoApp - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
     </footer>
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    @*Replaced this with Telerik's jQuery in head above*@
+    @*<script src="~/lib/jquery/dist/jquery.min.js"></script>*@
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
