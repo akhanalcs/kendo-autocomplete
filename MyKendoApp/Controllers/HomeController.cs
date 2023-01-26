@@ -34,7 +34,7 @@ namespace MyKendoApp.Controllers
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
 
-        // Kendo Autocomplete stuffs
+        #region Kendo Autocomplete stuffs
         public DataSourceResult GetAllOrdersFromMasterDatabase([DataSourceRequest] DataSourceRequest request, string orderIdHint)
         {
             try
@@ -71,109 +71,76 @@ namespace MyKendoApp.Controllers
             }
         }
 
-        //[Authorize("SomeRole")]
         public IActionResult GetOrderRecords([DataSourceRequest] DataSourceRequest request)
         {
-            try
-            {
-                return Json(_appInMemoryOrderRepository.ToDataSourceResult(request));
-            }
-            catch (Exception ex)
-            {
-                ModelState.AddModelError("GetOrderRecords", ex.ToString());
-                return Json(new[] { "An error occurred while getting order records. Review the error log for more information." });
-            }
+            return Json(_appInMemoryOrderRepository.ToDataSourceResult(request));
         }
 
         // This is called using custom AJAX and not by the Kendo Grid's create call.
-        //[Authorize("SomeRole")]
         public IActionResult AddOrderToAppRepo([FromBody] OrderViewModel orderData)
         {
-            try
+            if (orderData != null && ModelState.IsValid)
             {
-                if (orderData != null && ModelState.IsValid)
+                var existingOrder = _appInMemoryOrderRepository.FirstOrDefault(o => o.OrderId == orderData.OrderId);
+                if (existingOrder == null)
                 {
-                    var existingOrder = _appInMemoryOrderRepository.FirstOrDefault(o => o.OrderId == orderData.OrderId);
-                    if (existingOrder == null)
-                    {
-                        var maxId = _appInMemoryOrderRepository.Max(o => o.OrderId);
-                        orderData.OrderId = maxId + 1;
-                        _appInMemoryOrderRepository.Add(orderData);
-                    }
-                    else
-                    {
-                        existingOrder.OrderName = orderData.OrderName;
-                        existingOrder.OrderDesc = orderData.OrderDesc;
-                        existingOrder.CustomerLastName = orderData.CustomerLastName;
-                        existingOrder.CustomerFirstName = orderData.CustomerFirstName;
-                        existingOrder.OrderTotal = orderData.OrderTotal;
-                    }
+                    var maxId = _appInMemoryOrderRepository.Max(o => o.OrderId);
+                    orderData.OrderId = maxId + 1;
+                    _appInMemoryOrderRepository.Add(orderData);
                 }
-                return Json(new[] { orderData });
+                else
+                {
+                    existingOrder.OrderName = orderData.OrderName;
+                    existingOrder.OrderDesc = orderData.OrderDesc;
+                    existingOrder.CustomerLastName = orderData.CustomerLastName;
+                    existingOrder.CustomerFirstName = orderData.CustomerFirstName;
+                    existingOrder.OrderTotal = orderData.OrderTotal;
+                }
             }
-            catch (Exception ex)
-            {
-                ModelState.AddModelError("AddOrderToAppRepo", ex.ToString());
-                return Json(new[] { "An error occured while adding order to the app's in-memory database. Review the error log for more information." });
-            }
+
+            return Json(new[] { orderData });
         }
 
         [AcceptVerbs("Post")]
-        //[Authorize("SomeRole")]
         public IActionResult UpdateOrderRecord([DataSourceRequest] DataSourceRequest request, OrderViewModel orderData)
         {
-            try
+            if (orderData != null && ModelState.IsValid)
             {
-                if (orderData != null && ModelState.IsValid)
+                var existingOrder = _appInMemoryOrderRepository.FirstOrDefault(o => o.OrderId == orderData.OrderId);
+                if (existingOrder == null)
                 {
-                    var existingOrder = _appInMemoryOrderRepository.FirstOrDefault(o => o.OrderId == orderData.OrderId);
-                    if (existingOrder == null)
-                    {
-                        var maxId = _appInMemoryOrderRepository.Max(o => o.OrderId);
-                        orderData.OrderId = maxId + 1;
-                        _appInMemoryOrderRepository.Add(orderData);
-                    }
-                    else
-                    {
-                        existingOrder.OrderName = orderData.OrderName;
-                        existingOrder.OrderDesc = orderData.OrderDesc;
-                        existingOrder.CustomerLastName = orderData.CustomerLastName;
-                        existingOrder.CustomerFirstName = orderData.CustomerFirstName;
-                        existingOrder.OrderTotal = orderData.OrderTotal;
-                    }
+                    var maxId = _appInMemoryOrderRepository.Max(o => o.OrderId);
+                    orderData.OrderId = maxId + 1;
+                    _appInMemoryOrderRepository.Add(orderData);
                 }
+                else
+                {
+                    existingOrder.OrderName = orderData.OrderName;
+                    existingOrder.OrderDesc = orderData.OrderDesc;
+                    existingOrder.CustomerLastName = orderData.CustomerLastName;
+                    existingOrder.CustomerFirstName = orderData.CustomerFirstName;
+                    existingOrder.OrderTotal = orderData.OrderTotal;
+                }
+            }
 
-                return Json(new[] { orderData }.ToDataSourceResult(request, ModelState));
-            }
-            catch (Exception ex)
-            {
-                ModelState.AddModelError("UpdateOrderRecord", ex.ToString());
-                return Json(new[] { "An error occured while upserting order record. Review the error log for more information." });
-            }
+            return Json(new[] { orderData }.ToDataSourceResult(request, ModelState));
         }
 
         [AcceptVerbs("Post")]
-        //[Authorize("SomeRole")]
         public IActionResult DeleteOrderRecord([DataSourceRequest] DataSourceRequest request, OrderViewModel orderData)
         {
-            try
+            if (orderData != null)
             {
-                if (orderData != null)
+                var existingOrder = _appInMemoryOrderRepository.FirstOrDefault(o => o.OrderId == orderData.OrderId);
+                if (existingOrder != null)
                 {
-                    var existingOrder = _appInMemoryOrderRepository.FirstOrDefault(o => o.OrderId == orderData.OrderId);
-                    if (existingOrder != null)
-                    {
-                        _appInMemoryOrderRepository.Remove(existingOrder);
-                    }
+                    _appInMemoryOrderRepository.Remove(existingOrder);
                 }
+            }
 
-                return Json(new[] { orderData }.ToDataSourceResult(request, ModelState));
-            }
-            catch (Exception ex)
-            {
-                ModelState.AddModelError("DeleteOrderRecord", ex.ToString());
-                return Json(new[] { "An error occured while deleting order record. Review the error log for more information." });
-            }
+            return Json(new[] { orderData }.ToDataSourceResult(request, ModelState));
         }
+
+        #endregion
     }
 }
