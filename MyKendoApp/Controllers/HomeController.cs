@@ -10,12 +10,16 @@ namespace MyKendoApp.Controllers
     public class HomeController : Controller
     {
         private readonly ILogger<HomeController> _logger;
-        private readonly List<OrderViewModel> _appInMemoryOrderRepository;
+        private readonly List<Order> _ordersInAppDatabase;
 
         public HomeController(ILogger<HomeController> logger)
         {
             _logger = logger;
-            _appInMemoryOrderRepository = new List<OrderViewModel>();
+            _ordersInAppDatabase = new List<Order>()
+            {
+                new Order{OrderId = "0123", OrderName = "MyOrder012", CustomerFirstName = "SeedData", CustomerLastName = "B", OrderTotal = 100},
+                new Order{OrderId = "0133", OrderName = "MyOrder013", CustomerFirstName = "SeedData", CustomerLastName = "B", OrderTotal = 150},
+            };
         }
 
         public IActionResult Index()
@@ -39,7 +43,7 @@ namespace MyKendoApp.Controllers
         {
             try
             {
-                Expression<Func<OrderViewModel, bool>> searchPredicate;
+                Expression<Func<Order, bool>> searchPredicate;
 
                 if (!string.IsNullOrEmpty(orderIdHint))
                 {
@@ -51,17 +55,27 @@ namespace MyKendoApp.Controllers
                 }
 
                 // Get this from some Database call or service call. It's a simple example here.
-                var orders = new List<OrderViewModel>
+                var ordersFromMasterDatabase = new List<Order>
                 {
-                    new OrderViewModel{OrderId = "1234", OrderName = "MyOrder123", CustomerFirstName = "A", CustomerLastName = "B", OrderTotal = 100},
-                    new OrderViewModel{OrderId = "1235", OrderName = "MyOrder456", CustomerFirstName = "A", CustomerLastName = "B", OrderTotal = 150},
-                    new OrderViewModel{OrderId = "2345", OrderName = "MyOrder789", CustomerFirstName = "A", CustomerLastName = "B", OrderTotal = 200},
-                    new OrderViewModel{OrderId = "2346", OrderName = "MyOrder101", CustomerFirstName = "A", CustomerLastName = "B", OrderTotal = 250}
+                    new Order{OrderId = "1234", OrderName = "MyOrder123", CustomerFirstName = "A", CustomerLastName = "B", OrderTotal = 100},
+                    new Order{OrderId = "1235", OrderName = "MyOrder456", CustomerFirstName = "A", CustomerLastName = "B", OrderTotal = 150},
+                    new Order{OrderId = "2345", OrderName = "MyOrder789", CustomerFirstName = "A", CustomerLastName = "B", OrderTotal = 200},
+                    new Order{OrderId = "2346", OrderName = "MyOrder101", CustomerFirstName = "A", CustomerLastName = "B", OrderTotal = 250}
                 }.AsQueryable();
 
-                var finalList = orders.Where(searchPredicate);
+                var orderViewModels = ordersFromMasterDatabase      // For a more practical app, this will be DbContext.DbSet
+                                      .Where(searchPredicate)
+                                      .Select(od => 
+                                      new OrderViewModel
+                                      { 
+                                          OrderId = od.OrderId, 
+                                          OrderName = od.OrderName, 
+                                          CustomerFirstName = od.CustomerFirstName, 
+                                          CustomerLastName = od.CustomerLastName, 
+                                          OrderTotal = od.OrderTotal
+                                      });
 
-                return finalList.ToDataSourceResult(request);
+                return orderViewModels.ToDataSourceResult(request);
             }
             catch (Exception ex)
             {
@@ -73,72 +87,90 @@ namespace MyKendoApp.Controllers
 
         public IActionResult GetOrderRecords([DataSourceRequest] DataSourceRequest request)
         {
-            return Json(_appInMemoryOrderRepository.ToDataSourceResult(request));
+            return Json(_ordersInAppDatabase.ToDataSourceResult(request));
         }
 
         // This is called using custom AJAX and not by the Kendo Grid's create call.
-        public IActionResult AddOrderToAppRepo([FromBody] OrderViewModel orderData)
+        public IActionResult UpsertOrderToAppDatabase([FromBody] OrderViewModel orderViewModelData)
         {
-            if (orderData != null && ModelState.IsValid)
+            if (orderViewModelData != null && ModelState.IsValid)
             {
-                var existingOrder = _appInMemoryOrderRepository.FirstOrDefault(o => o.OrderId == orderData.OrderId);
+                var orderData = new Order
+                {
+                    OrderId = orderViewModelData.OrderId,
+                    OrderName = orderViewModelData.OrderName,
+                    CustomerFirstName = orderViewModelData.CustomerFirstName,
+                    CustomerLastName = orderViewModelData.CustomerLastName,
+                    OrderTotal = orderViewModelData.OrderTotal
+                };
+
+                var existingOrder = _ordersInAppDatabase.FirstOrDefault(o => o.OrderId == orderData.OrderId);
                 if (existingOrder == null)
                 {
-                    var maxId = _appInMemoryOrderRepository.Max(o => o.OrderId);
+                    var maxId = _ordersInAppDatabase.Max(o => o.OrderId);
                     orderData.OrderId = maxId + 1;
-                    _appInMemoryOrderRepository.Add(orderData);
+                    orderViewModelData.OrderId = orderData.OrderId; // Set this so frontend knows we saved the data because we're returning orderViewModelData back
+                    _ordersInAppDatabase.Add(orderData);
                 }
                 else
                 {
                     existingOrder.OrderName = orderData.OrderName;
-                    existingOrder.OrderDesc = orderData.OrderDesc;
                     existingOrder.CustomerLastName = orderData.CustomerLastName;
                     existingOrder.CustomerFirstName = orderData.CustomerFirstName;
                     existingOrder.OrderTotal = orderData.OrderTotal;
                 }
             }
 
-            return Json(new[] { orderData });
+            return Json(new[] { orderViewModelData });
         }
 
         [AcceptVerbs("Post")]
-        public IActionResult UpdateOrderRecord([DataSourceRequest] DataSourceRequest request, OrderViewModel orderData)
+        public IActionResult UpdateOrderRecord([DataSourceRequest] DataSourceRequest request, OrderViewModel orderViewModelData)
         {
-            if (orderData != null && ModelState.IsValid)
+            if (orderViewModelData != null && ModelState.IsValid)
             {
-                var existingOrder = _appInMemoryOrderRepository.FirstOrDefault(o => o.OrderId == orderData.OrderId);
+                var orderData = new Order
+                {
+                    OrderId = orderViewModelData.OrderId,
+                    OrderName = orderViewModelData.OrderName,
+                    CustomerFirstName = orderViewModelData.CustomerFirstName,
+                    CustomerLastName = orderViewModelData.CustomerLastName,
+                    OrderTotal = orderViewModelData.OrderTotal
+                };
+
+                var existingOrder = _ordersInAppDatabase.FirstOrDefault(o => o.OrderId == orderData.OrderId);
                 if (existingOrder == null)
                 {
-                    var maxId = _appInMemoryOrderRepository.Max(o => o.OrderId);
+                    var maxId = _ordersInAppDatabase.Max(o => o.OrderId);
                     orderData.OrderId = maxId + 1;
-                    _appInMemoryOrderRepository.Add(orderData);
+                    orderViewModelData.OrderId = orderData.OrderId; // Set this so frontend knows we saved the data because we're returning orderViewModelData back
+                    _ordersInAppDatabase.Add(orderData);
                 }
                 else
                 {
                     existingOrder.OrderName = orderData.OrderName;
-                    existingOrder.OrderDesc = orderData.OrderDesc;
                     existingOrder.CustomerLastName = orderData.CustomerLastName;
                     existingOrder.CustomerFirstName = orderData.CustomerFirstName;
                     existingOrder.OrderTotal = orderData.OrderTotal;
                 }
             }
 
-            return Json(new[] { orderData }.ToDataSourceResult(request, ModelState));
+            return Json(new[] { orderViewModelData }.ToDataSourceResult(request, ModelState));
         }
 
         [AcceptVerbs("Post")]
-        public IActionResult DeleteOrderRecord([DataSourceRequest] DataSourceRequest request, OrderViewModel orderData)
+        public IActionResult DeleteOrderRecord([DataSourceRequest] DataSourceRequest request, OrderViewModel orderViewModelData)
         {
-            if (orderData != null)
+            if (orderViewModelData != null)
             {
-                var existingOrder = _appInMemoryOrderRepository.FirstOrDefault(o => o.OrderId == orderData.OrderId);
+                var existingOrder = _ordersInAppDatabase.FirstOrDefault(o => o.OrderId == orderViewModelData.OrderId);
                 if (existingOrder != null)
                 {
-                    _appInMemoryOrderRepository.Remove(existingOrder);
+                    _ordersInAppDatabase.Remove(existingOrder);
                 }
             }
 
-            return Json(new[] { orderData }.ToDataSourceResult(request, ModelState));
+            return Json(new[] { orderViewModelData }.ToDataSourceResult(request, ModelState));
         }
 
         #endregion
